@@ -18,6 +18,7 @@ namespace Editor
         private float _alphaTolerance = 0.1f;
         private Color _shadowKey = Color.magenta;
         private float _shadowTolerance = 0.1f;
+        private Color _shadow = new(0f, 0f, 0f, 0.5f);
         private bool _generateMipmaps;
         private bool _makeReadable;
         
@@ -72,10 +73,15 @@ namespace Editor
 
                 for (var i = 0; i < pixels.Length; i++)
                 {
-                    var dist = ColorDistance(pixels[i], _alphaKey);
-                    var alpha = pixels[i].a;
-                    // Make pixel transparent. Ensure others are opaque. BMP files may not have proper alpha values
-                    pixels[i].a = dist < _alphaTolerance || alpha == 0f ? 0f : 1.0f;
+                    var color = pixels[i];
+                    
+                    // Set transparency. Ensure others are opaque (BMP files may not have proper alpha values)
+                    if (IsTransparent(color))
+                        pixels[i].a = 0f;
+                    else if (IsShadow(color))
+                        pixels[i] = _shadow;
+                    else
+                        pixels[i].a = 1f;
                 }
 
                 modifiedTexture.SetPixels(pixels);
@@ -110,15 +116,33 @@ namespace Editor
                     _selectedTextures[index] = AssetDatabase.LoadAssetAtPath<Texture2D>(outputPath);
 
                 DestroyImmediate(modifiedTexture);
+
+            }
+
+            return;
+
+            bool IsTransparent(Color color)
+            {
+                var alphaKeyDistance = ColorDistance(color, _alphaKey);
+                var alpha = color.a;
+                return alphaKeyDistance < _alphaTolerance || alpha == 0f;
+            }
+            
+            bool IsShadow(Color color)
+            {
+                var shadowKeyDistance = ColorDistance(color, _shadowKey);
+                var shadowDistance = ColorDistance(color, _shadow, includeAlpha: true);
+                var alpha = color.a;
+                return (shadowKeyDistance < _shadowTolerance || shadowDistance < _shadowTolerance) && alpha != 0f;
             }
         }
     
-        private static float ColorDistance(Color a, Color b)
+        private static float ColorDistance(Color a, Color b, bool includeAlpha = false)
         {
             var fa = new float4(a.r, a.g, a.b, a.a);
             var fb = new float4(b.r, b.g, b.b, b.a);
             var diff = fa - fb;
-            var dist = math.length(diff.xyz);
+            var dist = includeAlpha ? math.length(diff) : math.length(diff.xyz);
             return dist;
         }
 
@@ -129,6 +153,7 @@ namespace Editor
             
             _shadowKey = EditorGUILayout.ColorField("Shadow Key", _shadowKey);
             _shadowTolerance = EditorGUILayout.Slider("Shadow Tolerance", _shadowTolerance, 0.0f, 1.0f);
+            _shadow = EditorGUILayout.ColorField("Shadow Color", _shadow);
             
             _generateMipmaps = EditorGUILayout.Toggle("Generate Mipmaps", _generateMipmaps);
             _makeReadable = EditorGUILayout.Toggle("Make Texture Readable", _makeReadable);
@@ -164,6 +189,10 @@ namespace Editor
 
         private void DrawHint()
         {
+            EditorGUILayout.HelpBox(
+                "This is a destructive operation! Assets will be irreversibly changed or destroyed!",
+                MessageType.Warning);
+            
             _showHelp = EditorGUILayout.Foldout(_showHelp, "How to use");
             if (!_showHelp) 
                 return;
