@@ -10,7 +10,7 @@ public class Binder : MonoBehaviour
     [SerializeField] private Data data;
     [SerializeField] private AudioSource audioSource;
     
-    private readonly List<SoundButton> _buttons = new();
+    private List<SoundButton> _buttons;
 
     private void Awake()
     {
@@ -20,12 +20,13 @@ public class Binder : MonoBehaviour
     private void Init(Data data)
     {
         var entries = Sort(data.Entries);
+        _buttons = new List<SoundButton>(entries.Count);
         var prefab = data.Prefab;
+        var parent = view.transform;
         
         foreach (var entry in entries)
         {
-            var button = Instantiate(prefab, view.transform);
-            button.name = entry.name;
+            var button = Instantiate(prefab, parent);
             button.Init(entry, audioSource);
             _buttons.Add(button);
         }

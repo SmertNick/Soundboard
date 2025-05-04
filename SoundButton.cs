@@ -19,6 +19,7 @@ public class SoundButton : MonoBehaviour
     {
         _sound = entry.Sound;
         _source = source;
+        name = entry.name;
         Flags = entry.Flags;
         image.sprite = entry.Icon;
         text.text = entry.name;

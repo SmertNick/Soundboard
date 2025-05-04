@@ -10,17 +10,18 @@ namespace Editor
     {
         public override void OnInspectorGUI()
         {
-            var entry = (Entry)target;
             DrawDefaultInspector();
+            
+            var entry = (Entry)target;
             EditorGUILayout.Space(10);
-
             EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button("Play"))
-                PlayClip(entry.Sound);
-            
-            if (GUILayout.Button("Stop"))
-                StopAllClips();
-            
+            {
+                if (GUILayout.Button("Play"))
+                    PlayClip(entry.Sound);
+
+                if (GUILayout.Button("Stop"))
+                    StopAllClips();
+            }
             EditorGUILayout.EndHorizontal();
 
             if (entry.Icon == null)
@@ -56,7 +57,7 @@ namespace Editor
                 "PlayPreviewClip",
                 BindingFlags.Static | BindingFlags.Public,
                 null,
-                new Type[] { typeof(AudioClip), typeof(int), typeof(bool) },
+                new[] { typeof(AudioClip), typeof(int), typeof(bool) },
                 null
             );
 

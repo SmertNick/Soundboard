@@ -13,6 +13,7 @@ namespace Editor
         private readonly string[] _formats = { "PNG", "TGA" };
         
         private string _outputFormat = "PNG";
+        private TextureFormat _textureFormat = TextureFormat.ARGB32;
         private Color _alphaKey = Color.cyan;
         private float _alphaTolerance = 0.1f;
         private Color _shadowKey = Color.magenta;
@@ -36,10 +37,6 @@ namespace Editor
     
         private void ProcessTextures()
         {
-            var processed = 0;
-            var skipped = 0;
-            var converted = 0;
-
             for (var index = 0; index < _selectedTextures.Count; index++)
             {
                 var texture = _selectedTextures[index];
@@ -49,36 +46,28 @@ namespace Editor
                 var outputPath = path;
 
                 if (isBmp)
-                {
                     outputPath = Path.ChangeExtension(path, "." + _outputFormat.ToLower());
-                    converted++;
-                }
 
                 var importer = AssetImporter.GetAtPath(path) as TextureImporter;
 
                 if (importer == null)
                 {
                     Debug.LogError($"Could not get TextureImporter for {texture.name}");
-                    skipped++;
                     continue;
                 }
 
                 var wasReadable = importer.isReadable;
                 importer.isReadable = true;
-
                 importer.SaveAndReimport();
-
                 var sourceTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+                
                 if (sourceTexture == null)
                 {
                     Debug.LogError($"Could not load texture at path: {path}");
-                    skipped++;
                     continue;
                 }
 
-                var modifiedTexture = new Texture2D(sourceTexture.width, sourceTexture.height, TextureFormat.ARGB32,
-                    _generateMipmaps);
-
+                var modifiedTexture = new Texture2D(sourceTexture.width, sourceTexture.height, _textureFormat, _generateMipmaps);
                 var pixels = sourceTexture.GetPixels();
 
                 for (var i = 0; i < pixels.Length; i++)
@@ -89,11 +78,9 @@ namespace Editor
                     pixels[i].a = dist < _alphaTolerance || alpha == 0f ? 0f : 1.0f;
                 }
 
-                // Apply changes to the modified texture
                 modifiedTexture.SetPixels(pixels);
                 modifiedTexture.Apply();
 
-                // Encode based on selected output format
                 var encodedData = _outputFormat switch
                 {
                     "PNG" => modifiedTexture.EncodeToPNG(),
@@ -101,46 +88,32 @@ namespace Editor
                     _ => modifiedTexture.EncodeToPNG()
                 };
 
-                // Write the modified texture to the output file
                 File.WriteAllBytes(outputPath, encodedData);
-
-                // If we converted from BMP to another format, delete the original asset reference
                 var fileSwapped = isBmp && outputPath != path;
+                
                 if (fileSwapped)
                     AssetDatabase.DeleteAsset(path);
 
-                // Refresh the asset database
                 AssetDatabase.Refresh();
 
-                // Get the importer for the new file
                 var newImporter = AssetImporter.GetAtPath(outputPath) as TextureImporter;
+                
                 if (newImporter != null)
                 {
-                    // Update import settings
                     newImporter.textureType = TextureImporterType.Sprite;
                     newImporter.alphaIsTransparency = true;
                     newImporter.isReadable = _makeReadable || wasReadable;
-
-                    // Reimport with the new settings
                     newImporter.SaveAndReimport();
                 }
                 
                 if (fileSwapped)
                     _selectedTextures[index] = AssetDatabase.LoadAssetAtPath<Texture2D>(outputPath);
 
-                // Clean up
                 DestroyImmediate(modifiedTexture);
-                processed++;
             }
-            //
-            // EditorUtility.DisplayDialog("Process Complete", 
-            //     $"Processed {processed} textures.\n" +
-            //     $"Converted {converted} BMP files to {_outputFormat}.\n" +
-            //     $"Skipped {skipped} textures.", 
-            //     "OK");
         }
     
-        private float ColorDistance(Color a, Color b)
+        private static float ColorDistance(Color a, Color b)
         {
             var fa = new float4(a.r, a.g, a.b, a.a);
             var fb = new float4(b.r, b.g, b.b, b.a);
@@ -159,6 +132,8 @@ namespace Editor
             
             _generateMipmaps = EditorGUILayout.Toggle("Generate Mipmaps", _generateMipmaps);
             _makeReadable = EditorGUILayout.Toggle("Make Texture Readable", _makeReadable);
+            
+            _textureFormat = (TextureFormat) EditorGUILayout.EnumPopup("Texture Format", _textureFormat);
             
             var formatIndex = System.Array.IndexOf(_formats, _outputFormat);
             formatIndex = EditorGUILayout.Popup("Output Format", formatIndex, _formats);
