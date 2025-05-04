@@ -9,12 +9,22 @@ public class Binder : MonoBehaviour
     [SerializeField] private GridLayoutGroup view;
     [SerializeField] private Data data;
     [SerializeField] private AudioSource audioSource;
-    
-    private List<SoundButton> _buttons;
+
+    private List<SoundButton> _buttons = new();
 
     private void Awake()
     {
         Init(data);
+    }
+
+    public void Filter(EntryFlags flag, FilterMode mode)
+    {
+        foreach (var button in _buttons)
+        {
+            var mask = button.Flags & flag;
+            var isActive = mode == FilterMode.Any && mask != 0 || mode == FilterMode.All && mask == flag;
+            button.gameObject.SetActive(isActive);
+        }
     }
 
     private void Init(Data data)
@@ -29,16 +39,6 @@ public class Binder : MonoBehaviour
             var button = Instantiate(prefab, parent);
             button.Init(entry, audioSource);
             _buttons.Add(button);
-        }
-    }
-
-    public void Filter(EntryFlags flag, FilterMode mode)
-    {
-        foreach (var button in _buttons)
-        {
-            var mask = button.Flags & flag;
-            var isActive = mode == FilterMode.Any && mask != 0 || mode == FilterMode.All && mask == flag;
-            button.gameObject.SetActive(isActive);
         }
     }
 
